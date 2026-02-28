@@ -1,7 +1,5 @@
 # Dooray MCP Server
 
-[![MCP Badge](https://lobehub.com/badge/mcp-full/GeonheeYe-dooray-mcp?theme=light)](https://lobehub.com/mcp/GeonheeYe-dooray-mcp)
-
 MCP server for [Dooray!](https://dooray.com) - enabling AI assistants to interact with Dooray projects, tasks, wikis, and more.
 
 ## 설치
@@ -9,13 +7,6 @@ MCP server for [Dooray!](https://dooray.com) - enabling AI assistants to interac
 ### NPM (권장)
 ```bash
 npm install -g @geonheeye/dooray-mcp
-```
-
-### Smithery
-[![smithery badge](https://smithery.ai/badge/@geonheeye/dooray-mcp)](https://smithery.ai/server/@geonheeye/dooray-mcp)
-
-```bash
-npx -y @smithery/cli install @geonheeye/dooray-mcp --client claude
 ```
 
 ## 설정
