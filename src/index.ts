@@ -20,6 +20,7 @@ import { logger } from './utils/logger.js';
 
 // Import all tools
 import { getMyMemberInfoTool, getMyMemberInfoHandler, getMyMemberInfoSchema } from './tools/common/get-my-member-info.js';
+import { searchMembersTool, searchMembersHandler, searchMembersSchema } from './tools/common/search-members.js';
 
 import { getProjectListTool, getProjectListHandler, getProjectListSchema } from './tools/projects/get-project-list.js';
 import { getProjectTool, getProjectHandler, getProjectSchema } from './tools/projects/get-project.js';
@@ -96,6 +97,7 @@ dotenv.config();
 const toolRegistry = {
   // Common tools
   'get-my-member-info': { handler: getMyMemberInfoHandler, schema: getMyMemberInfoSchema },
+  'search-members': { handler: searchMembersHandler, schema: searchMembersSchema },
 
   // Projects tools
   'get-project-list': { handler: getProjectListHandler, schema: getProjectListSchema },
@@ -170,6 +172,7 @@ const toolRegistry = {
  */
 const tools = [
   getMyMemberInfoTool,
+  searchMembersTool,
   getProjectListTool,
   getProjectTool,
   getTaskListTool,

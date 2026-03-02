@@ -771,3 +771,21 @@ export interface WikiCommentUpdateParams {
   commentId: string;
   content: string;
 }
+
+// ============================================================================
+// Member Search Types
+// ============================================================================
+
+export interface SearchMembersParams {
+  name?: string;
+  userCode?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface MemberSearchResult {
+  id: string;
+  name: string;
+  userCode: string;
+  externalEmailAddress: string;
+}
