@@ -8,8 +8,8 @@ import * as wikiApi from '../../api/wiki.js';
 import { formatError } from '../../utils/errors.js';
 
 export const getWikiListSchema = z.object({
-  page: z.number().optional().describe('Page number (0-based)'),
-  size: z.number().optional().describe('Page size (default: 20)'),
+  page: z.coerce.number().optional().describe('Page number (0-based)'),
+  size: z.coerce.number().optional().describe('Page size (default: 20)'),
 });
 
 export type GetWikiListInput = z.infer<typeof getWikiListSchema>;
