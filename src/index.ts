@@ -258,6 +258,7 @@ async function main() {
     initializeClient({
       apiToken,
       baseUrl: process.env.DOORAY_API_BASE_URL,
+      tenantUrl: process.env.DOORAY_TENANT_URL,
     });
     logger.info('Dooray API client initialized');
   } catch (error) {

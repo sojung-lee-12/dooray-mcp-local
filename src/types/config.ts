@@ -7,6 +7,8 @@ export interface DoorayConfig {
   apiToken: string;
   /** Base URL for Dooray API (default: https://api.dooray.com) */
   baseUrl?: string;
+  /** Tenant URL for organization-specific APIs (e.g., https://ligaccuver.dooray.com) */
+  tenantUrl?: string;
 }
 
 export interface DoorayHeaders {
