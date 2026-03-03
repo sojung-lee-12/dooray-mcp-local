@@ -8,7 +8,8 @@
     "dooray-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc",
     "dev": "tsx src/index.ts",
     "prepare": "npm run build",
     "watch": "tsc --watch"
