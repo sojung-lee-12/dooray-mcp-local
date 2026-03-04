@@ -1,17 +1,14 @@
 /**
  * Upload Attachment Tool
- * Upload a file attachment to a task using curl
+ * Upload a file attachment to a task
  */
 
 import { z } from 'zod';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import axios from 'axios';
 import path from 'path';
 import fs from 'fs';
 import { formatError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
-
-const execAsync = promisify(exec);
 
 export const uploadAttachmentSchema = z.object({
   projectId: z.string().describe('Project ID'),
@@ -37,57 +34,42 @@ export async function uploadAttachmentHandler(args: UploadAttachmentInput) {
     const baseUrl = process.env.DOORAY_API_BASE_URL || 'https://api.dooray.com';
     const apiUrl = `${baseUrl}/project/v1/projects/${args.projectId}/posts/${args.taskId}/files`;
 
-    // Step 1: Make initial request to get 307 redirect location
+    const buildFormData = () => {
+      const form = new FormData();
+      form.append('file', new Blob([fs.readFileSync(args.filePath)]), fileName);
+      return form;
+    };
+
+    // Step 1: Make initial request to detect 307 redirect
     logger.debug(`Upload step 1: POST ${apiUrl}`);
 
-    const step1Command = `curl -s -X POST '${apiUrl}' \
-      --header 'Authorization: dooray-api ${apiToken}' \
-      --form 'file=@"${args.filePath}"' \
-      -w '\\n%{http_code}\\n%{redirect_url}' \
-      -o /dev/null`;
+    const step1Response = await axios.post(apiUrl, buildFormData(), {
+      headers: { 'Authorization': `dooray-api ${apiToken}` },
+      maxRedirects: 0,
+      validateStatus: (status: number) => (status >= 200 && status < 300) || status === 307,
+    });
 
-    const step1Result = await execAsync(step1Command);
-    const step1Lines = step1Result.stdout.trim().split('\n');
-    const httpCode = step1Lines[step1Lines.length - 2];
-    const redirectUrl = step1Lines[step1Lines.length - 1];
+    logger.debug(`Step 1 response: HTTP ${step1Response.status}`);
 
-    logger.debug(`Step 1 response: HTTP ${httpCode}, redirect: ${redirectUrl}`);
+    let response: { header?: { isSuccessful: boolean; resultMessage?: string }; result: { id: string } };
 
-    let result: { id: string };
-
-    if (httpCode === '307' && redirectUrl) {
-      // Step 2: Follow redirect and upload to file server
+    if (step1Response.status === 307) {
+      const redirectUrl = step1Response.headers['location'];
       logger.debug(`Upload step 2: POST ${redirectUrl}`);
 
-      const step2Command = `curl -s -X POST '${redirectUrl}' \
-        --header 'Authorization: dooray-api ${apiToken}' \
-        --form 'file=@"${args.filePath}"'`;
-
-      const step2Result = await execAsync(step2Command);
-      const response = JSON.parse(step2Result.stdout);
-
-      if (!response.header?.isSuccessful) {
-        throw new Error(response.header?.resultMessage || 'Upload failed');
-      }
-
-      result = response.result;
-    } else if (httpCode === '200' || httpCode === '201') {
-      // Direct upload succeeded (no redirect)
-      const directCommand = `curl -s -X POST '${apiUrl}' \
-        --header 'Authorization: dooray-api ${apiToken}' \
-        --form 'file=@"${args.filePath}"'`;
-
-      const directResult = await execAsync(directCommand);
-      const response = JSON.parse(directResult.stdout);
-
-      if (!response.header?.isSuccessful) {
-        throw new Error(response.header?.resultMessage || 'Upload failed');
-      }
-
-      result = response.result;
+      const step2Response = await axios.post(redirectUrl, buildFormData(), {
+        headers: { 'Authorization': `dooray-api ${apiToken}` },
+      });
+      response = step2Response.data;
     } else {
-      throw new Error(`Unexpected HTTP status: ${httpCode}`);
+      response = step1Response.data;
     }
+
+    if (!response.header?.isSuccessful) {
+      throw new Error(response.header?.resultMessage || 'Upload failed');
+    }
+
+    const result = response.result;
 
     return {
       content: [

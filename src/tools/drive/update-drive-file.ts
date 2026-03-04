@@ -1,17 +1,14 @@
 /**
  * Update Drive File Tool
- * Upload a new version of an existing file using curl (307 redirect handling)
+ * Upload a new version of an existing file (307 redirect handling)
  */
 
 import { z } from 'zod';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import axios from 'axios';
 import path from 'path';
 import fs from 'fs';
 import { formatError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
-
-const execAsync = promisify(exec);
 
 export const updateDriveFileSchema = z.object({
   driveId: z.string().describe('Drive ID'),
@@ -36,56 +33,42 @@ export async function updateDriveFileHandler(args: UpdateDriveFileInput) {
     const baseUrl = process.env.DOORAY_API_BASE_URL || 'https://api.dooray.com';
     const apiUrl = `${baseUrl}/drive/v1/drives/${args.driveId}/files/${args.fileId}?media=raw`;
 
-    // Step 1: Initial PUT request to get 307 redirect
+    const buildFormData = () => {
+      const form = new FormData();
+      form.append('file', new Blob([fs.readFileSync(args.filePath)]), fileName);
+      return form;
+    };
+
+    // Step 1: Initial PUT request to detect 307 redirect
     logger.debug(`Drive update step 1: PUT ${apiUrl}`);
 
-    const step1Command = `curl -s -X PUT '${apiUrl}' \
-      --header 'Authorization: dooray-api ${apiToken}' \
-      --form 'file=@"${args.filePath}"' \
-      -w '\\n%{http_code}\\n%{redirect_url}' \
-      -o /dev/null`;
+    const step1Response = await axios.put(apiUrl, buildFormData(), {
+      headers: { 'Authorization': `dooray-api ${apiToken}` },
+      maxRedirects: 0,
+      validateStatus: (status: number) => (status >= 200 && status < 300) || status === 307,
+    });
 
-    const step1Result = await execAsync(step1Command);
-    const step1Lines = step1Result.stdout.trim().split('\n');
-    const httpCode = step1Lines[step1Lines.length - 2];
-    const redirectUrl = step1Lines[step1Lines.length - 1];
+    logger.debug(`Step 1 response: HTTP ${step1Response.status}`);
 
-    logger.debug(`Step 1 response: HTTP ${httpCode}, redirect: ${redirectUrl}`);
+    let response: { header?: { isSuccessful: boolean; resultMessage?: string }; result: { id: string; version?: number } };
 
-    let result: { id: string; version?: number };
-
-    if (httpCode === '307' && redirectUrl) {
-      // Step 2: Follow redirect with PUT
+    if (step1Response.status === 307) {
+      const redirectUrl = step1Response.headers['location'];
       logger.debug(`Drive update step 2: PUT ${redirectUrl}`);
 
-      const step2Command = `curl -s -X PUT '${redirectUrl}' \
-        --header 'Authorization: dooray-api ${apiToken}' \
-        --form 'file=@"${args.filePath}"'`;
-
-      const step2Result = await execAsync(step2Command);
-      const response = JSON.parse(step2Result.stdout);
-
-      if (!response.header?.isSuccessful) {
-        throw new Error(response.header?.resultMessage || 'Update failed');
-      }
-
-      result = response.result;
-    } else if (httpCode === '200' || httpCode === '201') {
-      const directCommand = `curl -s -X PUT '${apiUrl}' \
-        --header 'Authorization: dooray-api ${apiToken}' \
-        --form 'file=@"${args.filePath}"'`;
-
-      const directResult = await execAsync(directCommand);
-      const response = JSON.parse(directResult.stdout);
-
-      if (!response.header?.isSuccessful) {
-        throw new Error(response.header?.resultMessage || 'Update failed');
-      }
-
-      result = response.result;
+      const step2Response = await axios.put(redirectUrl, buildFormData(), {
+        headers: { 'Authorization': `dooray-api ${apiToken}` },
+      });
+      response = step2Response.data;
     } else {
-      throw new Error(`Unexpected HTTP status: ${httpCode}`);
+      response = step1Response.data;
     }
+
+    if (!response.header?.isSuccessful) {
+      throw new Error(response.header?.resultMessage || 'Update failed');
+    }
+
+    const result = response.result;
 
     return {
       content: [{

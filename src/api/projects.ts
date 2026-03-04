@@ -555,8 +555,8 @@ export async function uploadFileToTask(
 
   const formData = new FormData();
   const blob = file.data instanceof Buffer
-    ? new Blob([file.data], { type: file.mimeType || 'application/octet-stream' })
-    : file.data;
+    ? new Blob([new Uint8Array(file.data)], { type: file.mimeType || 'application/octet-stream' })
+    : file.data as Blob;
 
   formData.append('file', blob, file.name);
 
